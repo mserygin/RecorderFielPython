@@ -1,5 +1,6 @@
 import json
-
+import os
+import sys
 from flask import Flask, request, jsonify
 from docx import Document
 import convertapi
@@ -9,27 +10,22 @@ from flask_cors import CORS, cross_origin
 app = Flask(__name__)
 CORS(app, origins="*")
 
-inputFile = "myfolder/document.docx"
-outputFile = "myfolder/document.pdf"
-
-
-@app.route('/', methods=['GET'])
-@cross_origin()
-def hello():
-    return "Hello World"
+absPath = os.path.dirname(sys.modules['__main__'].__file__)
+INPUT_FILE_PATH = absPath + "/myfolder/document.docx"
+OUTPUT_FILE_PATH = absPath + "/myfolder/document.pdf"
+CONVERT_KEY = "G3LHidhmyZOOYX56"
 
 
 @app.route('/check-text/', methods=['POST'])
 @cross_origin()
-def hello_world():
+def CheckDocument():
     file = request.files['file']
     paramsText = json.loads(request.form.get('data'))
 
-    # Нужно раскомитить
-    file.save(inputFile)
-    convertapi.api_secret = 'G3LHidhmyZOOYX56'
-    result = convertapi.convert('pdf', {'File': inputFile})
-    result.file.save(outputFile)
+    file.save(INPUT_FILE_PATH)
+    convertapi.api_secret = CONVERT_KEY
+    result = convertapi.convert('pdf', {'File': INPUT_FILE_PATH})
+    result.file.save(OUTPUT_FILE_PATH)
 
     try:
         return jsonify(checkDocument(file, paramsText))
@@ -59,15 +55,14 @@ def checkDocument(dataFile, params):
                 else:
                     resultTest[param] = [getPageByParagraph(paragraph.text)]
             atr = []
-
     for res in resultTest:
-        result.append({'name': res, 'listProblemsPage': list(set(resultTest[res]))})
-
+        if len(resultTest[res]) != 1 and resultTest[res] is not None:
+            result.append({'name': res, 'listProblemsPage': list(filter(None, list(set(resultTest[res]))))})
     return result
 
 
 def getPageByParagraph(paragraph):
-    rim = fitz.open(outputFile)
+    rim = fitz.open(OUTPUT_FILE_PATH)
     for current_page in range(len(rim)):
         page = rim.load_page(current_page)
         if page.search_for(paragraph):
@@ -106,6 +101,12 @@ def getFontsForParagraph(paragraph, document):
 
 
 def getStyleParagraph(paragraph): return paragraph.style.name
+
+
+@app.route('/', methods=['GET'])
+@cross_origin()
+def getStatusProject():
+    return "Everything works!"
 
 
 if __name__ == '__main__':
